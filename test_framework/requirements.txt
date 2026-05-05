@@ -1,0 +1,13 @@
+# TurboQuant 测试框架依赖
+# 安装: pip install -r requirements.txt
+
+# ========== 核心依赖 ==========
+torch>=2.1.0
+vllm>=0.16.0
+
+# ========== 可选依赖 ==========
+# 如需使用外部数据集进行质量测试，取消下面注释:
+# datasets>=2.14.0
+
+# 如需使用语义相似度评估，取消下面注释:
+# sentence-transformers>=2.2.0

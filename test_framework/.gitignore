@@ -1,0 +1,40 @@
+# 测试生成的文件
+*.md
+*.json
+!requirements.txt
+!README.md
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+
+# 模型文件（如果放在项目目录）
+*.bin
+*.safetensors
+*.model
+*.ckpt
+*.pth
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# 虚拟环境
+venv/
+env/
+ENV/
