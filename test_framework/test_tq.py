@@ -366,24 +366,31 @@ def test_context_extend(config: str, port: int) -> Dict:
     return results
 
 
-def test_concurrency(config: str, port: int, max_model_len: int = 65536, concurrency_levels: List[int] = None) -> Dict:
-    # H20 96GB 可以测试更高的并发
-    if concurrency_levels is None:
-        concurrency_levels = [50, 100, 200, 300, 500]
+def test_concurrency(config: str, port: int, max_model_len: int = 32768) -> Dict:
+    """
+    并发测试核心思路：
+    - 固定 max_model_len=32k（确保 KV cache 需求足够大）
+    - 逐步增加并发数，直到服务无法处理
+    - 对比 Baseline vs TurboQuant 的最大并发容量
+    """
+    # 并发数搜索：从低到高，找到 OOM 前能处理的最大值
+    base_levels = [5, 10, 20, 30, 50, 80, 100, 150, 200]
 
     print(f"\n{'='*60}")
-    print(f"🧪 方案 B: 并发请求测试 ({config})")
+    print(f"🧪 方案 B: 并发请求容量测试 ({config})")
+    print(f"    max_model_len={max_model_len}, 寻找最大并发容量...")
     print(f"{'='*60}")
 
     results = []
+    max_success = 0
 
-    for concurrency in concurrency_levels:
+    for concurrency in base_levels:
         print(f"\n  测试并发数={concurrency}...")
 
         process = start_vllm_server(config, max_model_len, port)
         if not process:
             print(f"    ❌ 启动失败")
-            results.append({"concurrency": concurrency, "success": False, "error": "启动失败"})
+            results.append({"concurrency": concurrency, "success": 0, "failed": 0, "error": "启动失败"})
             continue
 
         server_ready = wait_for_server(port, SERVER_START_TIMEOUT)
@@ -391,34 +398,39 @@ def test_concurrency(config: str, port: int, max_model_len: int = 65536, concurr
             print(f"    ❌ 服务启动超时，打印日志:")
             get_server_output(process, timeout=10)
             stop_vllm_server(process, port)
-            results.append({"concurrency": concurrency, "success": False, "error": "启动超时"})
-            continue
+            results.append({"concurrency": concurrency, "success": 0, "failed": 0, "error": "启动超时"})
+            break
 
         time.sleep(5)
 
         vram_before = get_vram()
         print(f"    VRAM before: {vram_before}")
 
+        # 使用长输入 + 长输出，真正压榨 KV cache
+        long_prompt = get_long_prompt(repeat=4)  # ~10k tokens 输入
+
         start_time = time.time()
         success_count = 0
         failed_count = 0
         total_tokens = 0
         latencies = []
+        errors = []
 
         with ThreadPoolExecutor(max_workers=concurrency) as executor:
             futures = [
-                executor.submit(generate_request, port, get_long_prompt(repeat=2), DEFAULT_MAX_TOKENS)
+                executor.submit(generate_request, port, long_prompt, 512)  # 512 tokens 输出
                 for _ in range(concurrency)
             ]
 
             for future in as_completed(futures):
                 result = future.result()
-                if result and result["success"]:
+                if result and result.get("success"):
                     success_count += 1
-                    total_tokens += result["tokens"]
-                    latencies.append(result["elapsed"])
+                    total_tokens += result.get("tokens", 0)
+                    latencies.append(result.get("elapsed", 0))
                 else:
                     failed_count += 1
+                    errors.append(result.get("error", "unknown") if result else "no result")
 
         total_time = time.time() - start_time
 
@@ -433,7 +445,10 @@ def test_concurrency(config: str, port: int, max_model_len: int = 65536, concurr
         print(f"    成功: {success_count}/{concurrency}, "
               f"总tokens: {total_tokens}, "
               f"平均延迟: {avg_latency:.2f}s, "
-              f"吞吐: {throughput:.2f} tok/s")
+              f"吞吐: {throughput:.1f} tok/s")
+
+        if errors and len(errors) <= 3:
+            print(f"    错误示例: {errors[:3]}")
 
         results.append({
             "concurrency": concurrency,
@@ -446,48 +461,72 @@ def test_concurrency(config: str, port: int, max_model_len: int = 65536, concurr
             "vram_after": vram_after,
         })
 
+        # 如果失败率超过 50%，说明接近容量上限，停止测试
+        if failed_count > concurrency * 0.5:
+            print(f"    ⚠️ 失败率 {failed_count}/{concurrency} > 50%，停止增长测试")
+            max_success = success_count
+            break
+
+        max_success = max(max_success, success_count)
+
+    print(f"\n  📊 {config} 最大并发容量: ~{max_success} 个请求")
+
     return results
 
 
 def compare_results(baseline_results: Dict, tq_results: Dict):
     print(f"\n{'='*60}")
-    print(f"📈 对比分析")
+    print(f"📈 对比分析 - TurboQuant 真实效果")
     print(f"{'='*60}")
 
-    print(f"\n【方案 A: 上下文扩展能力】")
-    print(f"  Baseline 最大支持: ", end="")
-    baseline_max = max(
-        (r for r in baseline_results["context"] if r.get("success", False)),
-        key=lambda x: x["max_model_len"],
-        default=None
-    )
-    tq_max = max(
-        (r for r in tq_results["context"] if r.get("success", False)),
-        key=lambda x: x["max_model_len"],
-        default=None
-    )
+    # 方案 B: 并发容量对比 (最重要)
+    baseline_conc = baseline_results.get("concurrency", [])
+    tq_conc = tq_results.get("concurrency", [])
 
-    if baseline_max:
-        print(f"max_model_len={baseline_max['max_model_len']}")
-    else:
-        print("无法确定")
+    # 找到 Baseline 最大成功并发数
+    baseline_max = 0
+    for r in baseline_conc:
+        if r.get("success", 0) > 0:
+            baseline_max = max(baseline_max, r["success"])
 
-    if tq_max:
-        print(f"  TurboQuant 最大支持: max_model_len={tq_max['max_model_len']}")
+    # 找到 TQ 最大成功并发数
+    tq_max = 0
+    for r in tq_conc:
+        if r.get("success", 0) > 0:
+            tq_max = max(tq_max, r["success"])
 
-    if baseline_max and tq_max:
-        diff = tq_max['max_model_len'] - baseline_max['max_model_len']
-        pct = diff / baseline_max['max_model_len'] * 100
-        print(f"  提升: +{diff} ({pct:+.1f}%)")
+    print(f"\n🎯 【核心指标】最大并发容量")
+    print(f"  Baseline:     {baseline_max} 个并发请求")
+    print(f"  TurboQuant:   {tq_max} 个并发请求")
+    if baseline_max > 0 and tq_max > 0:
+        improvement = (tq_max - baseline_max) / baseline_max * 100
+        print(f"  提升:        +{tq_max - baseline_max} ({improvement:+.1f}%)")
 
-    print(f"\n【方案 B: 并发请求】")
-    for baseline_r, tq_r in zip(baseline_results["concurrency"], tq_results["concurrency"]):
-        c = baseline_r["concurrency"]
-        baseline_tp = baseline_r.get("throughput", 0)
-        tq_tp = tq_r.get("throughput", 0)
-        if baseline_tp > 0:
-            tp_diff = (tq_tp - baseline_tp) / baseline_tp * 100
-            print(f"  并发={c}: Baseline {baseline_tp:.1f} tok/s → TQ {tq_tp:.1f} tok/s ({tp_diff:+.1f}%)")
+    # 显示详细的并发测试结果
+    print(f"\n📊 【并发测试详情】")
+    print(f"{'并发':>6} | {'Baseline成功':>12} | {'TQ成功':>8} | {'提升':>8}")
+    print("-" * 50)
+    for i, (br, tr) in enumerate(zip(baseline_conc, tq_conc)):
+        c = br.get("concurrency", 0)
+        bs = br.get("success", 0)
+        ts = tr.get("success", 0)
+        diff = ts - bs
+        diff_pct = f"{diff:+.0f}" if diff != 0 else "-"
+        print(f"{c:>6} | {bs:>12} | {ts:>8} | {diff_pct:>8}")
+
+    # 方案 A: 上下文扩展 (如果有结果)
+    baseline_ctx = baseline_results.get("context", [])
+    tq_ctx = tq_results.get("context", [])
+
+    if baseline_ctx and tq_ctx:
+        print(f"\n📊 【上下文扩展详情】")
+        print(f"{'max_model_len':>15} | {'Baseline':>8} | {'TQ':>8}")
+        print("-" * 40)
+        for br, tr in zip(baseline_ctx, tq_ctx):
+            ml = br.get("max_model_len", 0)
+            bs = "✅" if br.get("success") else "❌"
+            ts = "✅" if tr.get("success") else "❌"
+            print(f"{ml:>15} | {bs:>8} | {ts:>8}")
 
 
 def save_results(baseline_results: Dict, tq_results: Dict):
