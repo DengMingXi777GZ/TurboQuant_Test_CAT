@@ -319,14 +319,9 @@ def generate_request(port: int, prompt: str, max_tokens: int = 128) -> Optional[
 
             try:
                 chunk_data = json.loads(data_str)
-                delta = chunk_data.get("choices", [{}])[0].get("delta", {})
-                # Debug: 打印第一个 chunk 的结构
-                if chunk_count == 1:
-                    print(f"    [DEBUG] chunk_data keys: {chunk_data.keys()}")
-                    print(f"    [DEBUG] choices[0] keys: {chunk_data.get('choices', [{}])[0].keys() if chunk_data.get('choices') else 'none'}")
-                    print(f"    [DEBUG] delta keys: {delta.keys()}, delta: {str(delta)[:200]}")
-                # vLLM streaming 响应格式: delta.content
-                text = delta.get("content") or delta.get("text") or ""
+                choice = chunk_data.get("choices", [{}])[0]
+                # vLLM streaming: text 直接在 choice["text"] 中，不是 delta 里
+                text = choice.get("text", "") or choice.get("delta", {}).get("content", "") or choice.get("delta", {}).get("text", "")
                 if text:
                     full_text += text
 
