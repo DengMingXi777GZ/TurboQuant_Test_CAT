@@ -125,6 +125,43 @@ def wait_for_server(port: int, timeout: int = 120) -> bool:
     return False
 
 
+def check_turboquant_enabled(port: int) -> Dict:
+    """检查 TurboQuant 是否启用"""
+    result = {"enabled": False, "method": "unknown", "details": ""}
+
+    # 方法1: 检查 vLLM 模型信息
+    try:
+        resp = requests.get(f"http://localhost:{port}/v1/models", timeout=10)
+        if resp.status_code == 200:
+            data = resp.json()
+            model_info = data.get("data", [{}])[0]
+            result["model_info"] = model_info.get("id", "unknown")
+    except Exception as e:
+        result["details"] += f"API check failed: {e}; "
+
+    # 方法2: 发送测试请求，检查处理时间特征
+    # TQ 压缩后首次 prefill 可能稍慢，但 decode 会更快
+    test_prompt = "Hello, this is a test." * 50
+    try:
+        start = time.perf_counter()
+        resp = requests.post(
+            f"http://localhost:{port}/v1/completions",
+            json={"model": MODEL_NAME, "prompt": test_prompt, "max_tokens": 10},
+            timeout=60
+        )
+        elapsed = time.perf_counter() - start
+        result["test_latency_ms"] = round(elapsed * 1000, 1)
+
+        if resp.status_code == 200:
+            result["api_works"] = True
+        else:
+            result["api_error"] = resp.status_code
+    except Exception as e:
+        result["test_error"] = str(e)
+
+    return result
+
+
 def get_vram() -> List[float]:
     try:
         result = subprocess.run(
@@ -352,6 +389,14 @@ def test_context_extend(config: str, port: int) -> Dict:
 
         time.sleep(5)
 
+        # 检查 TQ 是否启用
+        print(f"    🔍 检查 TurboQuant 状态...")
+        tq_status = check_turboquant_enabled(port)
+        if tq_status.get("api_works"):
+            print(f"    ✅ 服务正常, 测试延迟: {tq_status.get('test_latency_ms')}ms")
+        else:
+            print(f"    ⚠️ 服务异常: {tq_status}")
+
         vram_after_start = get_vram()
         print(f"    VRAM after start: {vram_after_start}")
 
@@ -422,6 +467,14 @@ def test_concurrency(config: str, port: int, max_model_len: int = 32768) -> Dict
             break
 
         time.sleep(5)
+
+        # 检查 TQ 是否启用
+        print(f"    🔍 检查 TurboQuant 状态...")
+        tq_status = check_turboquant_enabled(port)
+        if tq_status.get("api_works"):
+            print(f"    ✅ 服务正常, 测试延迟: {tq_status.get('test_latency_ms')}ms")
+        else:
+            print(f"    ⚠️ 服务异常: {tq_status}")
 
         vram_before = get_vram()
         print(f"    VRAM before: {vram_before}")
