@@ -3,7 +3,7 @@ set -euo pipefail
 
 CONDA_SH="/mnt/data1/dmx/miniconda3/etc/profile.d/conda.sh"
 CONDA_ENV="vllm_qw"
-UV_VLLM_BIN="/home/deng/vllm/bin/vllm"
+UV_VLLM_BIN="/home/dengmingxi/vllm/bin/vllm"
 MODEL_PATH="/mnt/data1/dmx/Models/Qwen35_2b"
 
 HOST="${VLLM_HOST:-0.0.0.0}"
