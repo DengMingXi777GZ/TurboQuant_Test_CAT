@@ -97,7 +97,7 @@ def start_vllm_server(config: str, max_model_len: int, port: int) -> Optional[su
         f"exec {UV_VLLM_BIN} serve {MODEL_PATH} "
         f"--host 0.0.0.0 --port {port} "
         f"--served-model-name {MODEL_NAME} "
-        f"--gpu-memory-utilization 0.9 "
+        f"--gpu-memory-utilization 0.3 "
         f"--max-model-len {max_model_len} "
         f"--tensor-parallel-size 1 "
         f"--trust-remote-code "
