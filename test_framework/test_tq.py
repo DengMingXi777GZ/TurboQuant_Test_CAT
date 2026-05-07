@@ -79,7 +79,7 @@ def kill_process_on_port(port: int):
         pass
 
 
-def start_vllm_server(config: str, max_model_len: int, port: int = SERVER_PORT) -> Optional[subprocess.Popen]:
+def start_vllm_server(config: str, max_model_len: int, port: int) -> Optional[subprocess.Popen]:
     env = os.environ.copy()
     env["TURBOQUANT_REPO_ROOT"] = str(Path(__file__).parent.parent)
 
@@ -116,7 +116,7 @@ def start_vllm_server(config: str, max_model_len: int, port: int = SERVER_PORT) 
     return process
 
 
-def stop_vllm_server(process: subprocess.Popen):
+def stop_vllm_server(process: subprocess.Popen, port: int):
     if process:
         try:
             os.killpg(os.getpgid(process.pid), signal.SIGTERM)
@@ -126,7 +126,7 @@ def stop_vllm_server(process: subprocess.Popen):
                 os.killpg(os.getpgid(process.pid), signal.SIGKILL)
             except:
                 pass
-    kill_process_on_port(SERVER_PORT)
+    kill_process_on_port(port)
     time.sleep(3)
 
 
@@ -211,7 +211,7 @@ def generate_request(port: int, prompt: str, max_tokens: int = 128) -> Optional[
         return {"success": False, "error": str(e), "elapsed": 0}
 
 
-def test_context_extend(config: str) -> Dict:
+def test_context_extend(config: str, port: int) -> Dict:
     print(f"\n{'='*60}")
     print(f"🧪 方案 A: 上下文扩展能力测试 ({config})")
     print(f"{'='*60}")
@@ -224,17 +224,17 @@ def test_context_extend(config: str) -> Dict:
         vram_before = get_vram()
         print(f"    VRAM before: {vram_before}")
 
-        process = start_vllm_server(config, max_len)
+        process = start_vllm_server(config, max_len, port)
         if not process:
             print(f"    ❌ 启动失败")
             results.append({"max_model_len": max_len, "success": False, "error": "启动失败"})
             continue
 
-        server_ready = wait_for_server(SERVER_PORT, SERVER_START_TIMEOUT)
+        server_ready = wait_for_server(port, SERVER_START_TIMEOUT)
 
         if not server_ready:
             print(f"    ❌ 服务启动超时")
-            stop_vllm_server(process)
+            stop_vllm_server(process, port)
             results.append({"max_model_len": max_len, "success": False, "error": "启动超时"})
             continue
 
@@ -244,12 +244,12 @@ def test_context_extend(config: str) -> Dict:
         print(f"    VRAM after start: {vram_after_start}")
 
         test_prompt = TEST_PROMPT * 4
-        result = generate_request(SERVER_PORT, test_prompt, DEFAULT_MAX_TOKENS)
+        result = generate_request(port, test_prompt, DEFAULT_MAX_TOKENS)
 
         vram_after_req = get_vram()
         print(f"    VRAM after request: {vram_after_req}")
 
-        stop_vllm_server(process)
+        stop_vllm_server(process, port)
 
         if result and result["success"]:
             print(f"    ✅ 成功 (tokens={result['tokens']}, elapsed={result['elapsed']:.2f}s)")
@@ -274,7 +274,7 @@ def test_context_extend(config: str) -> Dict:
     return results
 
 
-def test_concurrency(config: str, max_model_len: int = 8192, concurrency_levels: List[int] = None) -> Dict:
+def test_concurrency(config: str, port: int, max_model_len: int = 8192, concurrency_levels: List[int] = None) -> Dict:
     if concurrency_levels is None:
         concurrency_levels = [1, 2, 4, 8, 16]
 
@@ -287,16 +287,16 @@ def test_concurrency(config: str, max_model_len: int = 8192, concurrency_levels:
     for concurrency in concurrency_levels:
         print(f"\n  测试并发数={concurrency}...")
 
-        process = start_vllm_server(config, max_model_len)
+        process = start_vllm_server(config, max_model_len, port)
         if not process:
             print(f"    ❌ 启动失败")
             results.append({"concurrency": concurrency, "success": False, "error": "启动失败"})
             continue
 
-        server_ready = wait_for_server(SERVER_PORT, SERVER_START_TIMEOUT)
+        server_ready = wait_for_server(port, SERVER_START_TIMEOUT)
         if not server_ready:
             print(f"    ❌ 服务启动超时")
-            stop_vllm_server(process)
+            stop_vllm_server(process, port)
             results.append({"concurrency": concurrency, "success": False, "error": "启动超时"})
             continue
 
@@ -313,7 +313,7 @@ def test_concurrency(config: str, max_model_len: int = 8192, concurrency_levels:
 
         with ThreadPoolExecutor(max_workers=concurrency) as executor:
             futures = [
-                executor.submit(generate_request, SERVER_PORT, TEST_PROMPT, DEFAULT_MAX_TOKENS)
+                executor.submit(generate_request, port, TEST_PROMPT, DEFAULT_MAX_TOKENS)
                 for _ in range(concurrency)
             ]
 
@@ -331,7 +331,7 @@ def test_concurrency(config: str, max_model_len: int = 8192, concurrency_levels:
         vram_after = get_vram()
         print(f"    VRAM after: {vram_after}")
 
-        stop_vllm_server(process)
+        stop_vllm_server(process, port)
 
         avg_latency = sum(latencies) / len(latencies) if latencies else 0
         throughput = total_tokens / total_time if total_time > 0 else 0
@@ -413,17 +413,17 @@ def save_results(baseline_results: Dict, tq_results: Dict):
     print(f"\n💾 结果已保存: {json_path}")
 
 
-def run_baseline_tests() -> Dict:
+def run_baseline_tests(port: int) -> Dict:
     return {
-        "context": test_context_extend("baseline"),
-        "concurrency": test_concurrency("baseline"),
+        "context": test_context_extend("baseline", port),
+        "concurrency": test_concurrency("baseline", port),
     }
 
 
-def run_tq_tests() -> Dict:
+def run_tq_tests(port: int) -> Dict:
     return {
-        "context": test_context_extend("turboquant"),
-        "concurrency": test_concurrency("turboquant"),
+        "context": test_context_extend("turboquant", port),
+        "concurrency": test_concurrency("turboquant", port),
     }
 
 
@@ -435,33 +435,33 @@ def main():
                        help="仅测试 baseline")
     parser.add_argument("--tq-only", action="store_true",
                        help="仅测试 turboquant")
-    parser.add_argument("--port", type=int, default=SERVER_PORT,
-                       help=f"服务端口 (默认: {SERVER_PORT})")
+    parser.add_argument("--port", type=int, default=8001,
+                       help="服务端口 (默认: 8001)")
 
-    global SERVER_PORT
     args = parser.parse_args()
-    SERVER_PORT = args.port
+    port = args.port
 
     print("="*60)
     print("🧪 TurboQuant 真实效果测试")
     print("="*60)
     print(f"测试类型: {args.test}")
+    print(f"服务端口: {port}")
 
     baseline_results = None
     tq_results = None
 
     if args.baseline_only:
-        baseline_results = run_baseline_tests()
+        baseline_results = run_baseline_tests(port)
     elif args.tq_only:
-        tq_results = run_tq_tests()
+        tq_results = run_tq_tests(port)
     else:
         print("\n" + "-"*60)
         print("先测试 Baseline...")
-        baseline_results = run_baseline_tests()
+        baseline_results = run_baseline_tests(port)
 
         print("\n" + "-"*60)
         print("再测试 TurboQuant...")
-        tq_results = run_tq_tests()
+        tq_results = run_tq_tests(port)
 
         if baseline_results and tq_results:
             compare_results(baseline_results, tq_results)
