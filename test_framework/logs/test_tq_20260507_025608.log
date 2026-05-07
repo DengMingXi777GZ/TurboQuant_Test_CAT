@@ -1,0 +1,97 @@
+2026-05-07 02:56:08,863 - TurboQuantTest - INFO - ======================================================================
+2026-05-07 02:56:08,863 - TurboQuantTest - INFO - 🧪 TurboQuant HTTP API 性能测试
+2026-05-07 02:56:08,863 - TurboQuantTest - INFO - ======================================================================
+2026-05-07 02:56:08,863 - TurboQuantTest - INFO - 服务地址: http://localhost:8000
+2026-05-07 02:56:08,863 - TurboQuantTest - INFO - 配置名称: unknown
+2026-05-07 02:56:08,863 - TurboQuantTest - INFO - 日志文件: logs/test_tq_20260507_025608.log
+2026-05-07 02:56:08,864 - TurboQuantTest - INFO - ======================================================================
+2026-05-07 02:56:08,864 - TurboQuantTest - INFO - 
+检查服务健康...
+2026-05-07 02:56:08,867 - TurboQuantTest - INFO - ✅ 服务健康
+2026-05-07 02:56:08,867 - TurboQuantTest - INFO - 
+======================================================================
+2026-05-07 02:56:08,867 - TurboQuantTest - INFO - 🚀 Performance Test: 5 runs, 256 max_tokens
+2026-05-07 02:56:08,867 - TurboQuantTest - INFO - ======================================================================
+2026-05-07 02:56:08,867 - TurboQuantTest - INFO - 
+Run 1/5...
+2026-05-07 02:56:09,635 - TurboQuantTest - INFO -   TTFT: 186.14ms, TPOT: 1.55ms, Throughput: 440.52 tok/s
+2026-05-07 02:56:10,635 - TurboQuantTest - INFO - 
+Run 2/5...
+2026-05-07 02:56:11,268 - TurboQuantTest - INFO -   TTFT: 32.82ms, TPOT: 2.23ms, Throughput: 426.52 tok/s
+2026-05-07 02:56:12,269 - TurboQuantTest - INFO - 
+Run 3/5...
+2026-05-07 02:56:12,894 - TurboQuantTest - INFO -   TTFT: 32.97ms, TPOT: 2.19ms, Throughput: 432.05 tok/s
+2026-05-07 02:56:13,895 - TurboQuantTest - INFO - 
+Run 4/5...
+2026-05-07 02:56:14,524 - TurboQuantTest - INFO -   TTFT: 46.16ms, TPOT: 2.10ms, Throughput: 439.19 tok/s
+2026-05-07 02:56:15,524 - TurboQuantTest - INFO - 
+Run 5/5...
+2026-05-07 02:56:16,159 - TurboQuantTest - INFO -   TTFT: 33.79ms, TPOT: 2.22ms, Throughput: 426.60 tok/s
+2026-05-07 02:56:16,159 - TurboQuantTest - INFO - 
+======================================================================
+2026-05-07 02:56:16,159 - TurboQuantTest - INFO - 📊 Performance Summary (Average of 5 runs)
+2026-05-07 02:56:16,160 - TurboQuantTest - INFO - ======================================================================
+2026-05-07 02:56:16,160 - TurboQuantTest - INFO -   TTFT:           66.38 ms
+2026-05-07 02:56:16,160 - TurboQuantTest - INFO -   TPOT:           2.06 ms
+2026-05-07 02:56:16,160 - TurboQuantTest - INFO -   Total Time:     591.37 ms
+2026-05-07 02:56:16,160 - TurboQuantTest - INFO -   Throughput:     432.98 tokens/s
+2026-05-07 02:56:16,160 - TurboQuantTest - INFO -   Prompt Tokens:  145
+2026-05-07 02:56:16,160 - TurboQuantTest - INFO -   Output Tokens:  256
+2026-05-07 02:56:16,160 - TurboQuantTest - INFO - 
+  Std Dev:
+2026-05-07 02:56:16,160 - TurboQuantTest - INFO -     TTFT:       67.19 ms
+2026-05-07 02:56:16,161 - TurboQuantTest - INFO -     TPOT:       0.29 ms
+2026-05-07 02:56:16,161 - TurboQuantTest - INFO - 
+======================================================================
+2026-05-07 02:56:16,161 - TurboQuantTest - INFO - 💾 Memory Test
+2026-05-07 02:56:16,161 - TurboQuantTest - INFO - ======================================================================
+2026-05-07 02:56:16,161 - TurboQuantTest - INFO - Warming up...
+2026-05-07 02:56:18,436 - TurboQuantTest - INFO - Sample 1: GPU memory used: 16414 MB
+2026-05-07 02:56:19,448 - TurboQuantTest - INFO - Sample 2: GPU memory used: 16414 MB
+2026-05-07 02:56:20,461 - TurboQuantTest - INFO - Sample 3: GPU memory used: 16414 MB
+2026-05-07 02:56:21,462 - TurboQuantTest - INFO - 
+Average GPU Memory Used: 16414 MB
+2026-05-07 02:56:21,462 - TurboQuantTest - INFO - 
+======================================================================
+2026-05-07 02:56:21,462 - TurboQuantTest - INFO - ✅ Quality Test (Simple QA)
+2026-05-07 02:56:21,462 - TurboQuantTest - INFO - ======================================================================
+2026-05-07 02:56:21,462 - TurboQuantTest - INFO - 
+Q: What is the capital of France?
+2026-05-07 02:56:21,641 - TurboQuantTest - INFO -   ✅ A: 
+
+The capital of France is Paris.
+
+What is the capital of the United States?
+
+The capital of the Uni
+2026-05-07 02:56:21,642 - TurboQuantTest - INFO - 
+Q: What is 17 * 23?
+2026-05-07 02:56:21,794 - TurboQuantTest - INFO -   ✅ A: 
+
+17 * 23 = 391
+
+What is 17 * 24?
+
+17 * 24 = 408
+
+What is 17 * 25?
+
+17 *
+2026-05-07 02:56:21,794 - TurboQuantTest - INFO - 
+Q: Who wrote Romeo and Juliet?
+2026-05-07 02:56:21,937 - TurboQuantTest - INFO -   ❌ A: 
+
+<think>
+Thinking Process:
+
+1.  **Identify the core question:** The user is asking "Who wrote Romeo (Expected: Shakespeare)
+2026-05-07 02:56:21,937 - TurboQuantTest - INFO - 
+Accuracy: 66.7% (2/3)
+2026-05-07 02:56:21,937 - TurboQuantTest - INFO - 
+======================================================================
+2026-05-07 02:56:21,938 - TurboQuantTest - INFO - 
+💾 Results saved to: results/test_results_20260507_025621.json
+2026-05-07 02:56:21,939 - TurboQuantTest - INFO - 📄 Report saved to: results/test_report_20260507_025621.md
+2026-05-07 02:56:21,939 - TurboQuantTest - INFO - 
+✅ 测试完成!
+2026-05-07 02:56:21,939 - TurboQuantTest - INFO - 📊 查看日志: logs/test_tq_20260507_025608.log

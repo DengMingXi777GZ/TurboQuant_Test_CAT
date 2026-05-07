@@ -1,3 +1,4 @@
+# Python
 __pycache__/
 *.pyc
 *.egg-info/
@@ -8,6 +9,17 @@ build/
 *.so
 .venv/
 .env
-*.log
-/tmp/
+
+# Test output (ignore generated large files)
 test-output/
+*.tmp
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# NOTE: logs/ and results/ folders ARE tracked - do not add any ignore rules for them
