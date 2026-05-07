@@ -31,16 +31,29 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 # 导入测试数据集
 from datasets import TEST_DATASETS, get_test_prompt
 
-# 使用多文档QA作为主要测试（最具挑战性）
-DEFAULT_DATASET = "multi_doc_qa"
+# 加载真实的《战争与Peace》长文本
+WAR_AND_PEACE_FILE = Path(__file__).parent / "war_and_peace.txt"
+if WAR_AND_PEACE_FILE.exists():
+    with open(WAR_AND_PEACE_FILE, "r", encoding="utf-8", errors="ignore") as f:
+        WAR_AND_PEACE_TEXT = f.read()
+    # 找到正文开始位置（跳过 Gutenberg header）
+    start_idx = WAR_AND_PEACE_TEXT.find("*** START OF THE PROJECT GUTENBERG EBOOK")
+    if start_idx != -1:
+        end_marker = WAR_AND_PEACE_TEXT.find("***", start_idx + 50)
+        if end_marker != -1:
+            WAR_AND_PEACE_TEXT = WAR_AND_PEACE_TEXT[end_marker + 3:]
+    print(f"    [DATA] 加载 war_and_peace.txt: {len(WAR_AND_PEACE_TEXT)} chars")
+else:
+    WAR_AND_PEACE_TEXT = ""
+    print(f"    [DATA] war_and_peace.txt not found, using fallback")
 
-def get_long_prompt(dataset_key: str = None, repeat: int = 1) -> str:
-    """获取长文本测试prompt，可重复多次增加长度"""
-    prompt = get_test_prompt(dataset_key or DEFAULT_DATASET)
-    if repeat > 1:
-        # 重复内容增加输入长度，模拟超长文档
-        prompt = prompt + ("\n\n[Additional context for longer context testing]\n" + prompt) * (repeat - 1)
-    return prompt
+def get_long_prompt(chars: int = 10000) -> str:
+    """获取指定长度的真实文本"""
+    if WAR_AND_PEACE_TEXT:
+        # 从文本开头截取指定长度
+        return WAR_AND_PEACE_TEXT[:chars]
+    # Fallback: 使用数据集
+    return get_test_prompt()
 
 
 MODEL_NAME = "Qwen35_2b"
@@ -162,7 +175,7 @@ def start_vllm_server(config: str, max_model_len: int, port: int) -> Optional[su
         f"exec {UV_VLLM_BIN} serve {MODEL_PATH} "
         f"--host 0.0.0.0 --port {port} "
         f"--served-model-name {MODEL_NAME} "
-        f"--gpu-memory-utilization 0.9 "
+        f"--gpu-memory-utilization 0.1 "
         f"--max-model-len {max_model_len} "
         f"--gdn-prefill-backend triton "
         f"--trust-remote-code"
@@ -342,8 +355,8 @@ def test_context_extend(config: str, port: int) -> Dict:
         vram_after_start = get_vram()
         print(f"    VRAM after start: {vram_after_start}")
 
-        # 使用长文本测试（重复3次以增加输入长度到10k+ tokens）
-        result = generate_request(port, get_long_prompt(repeat=3), DEFAULT_MAX_TOKENS)
+        # 使用真实的 war_and_peace 文本 ~10k tokens
+        result = generate_request(port, get_long_prompt(15000), DEFAULT_MAX_TOKENS)
 
         vram_after_req = get_vram()
         print(f"    VRAM after request: {vram_after_req}")
@@ -413,8 +426,8 @@ def test_concurrency(config: str, port: int, max_model_len: int = 32768) -> Dict
         vram_before = get_vram()
         print(f"    VRAM before: {vram_before}")
 
-        # 使用长输入 + 长输出，真正压榨 KV cache
-        long_prompt = get_long_prompt(repeat=4)  # ~10k tokens 输入
+        # 使用真实的 war_and_peace 文本 ~20k tokens，真正压榨 KV cache
+        long_prompt = get_long_prompt(25000)  # ~20k tokens 输入
 
         start_time = time.time()
         success_count = 0
