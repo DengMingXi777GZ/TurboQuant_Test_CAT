@@ -39,33 +39,49 @@ SERVER_PORT = 8001
 SERVER_START_TIMEOUT = 180
 DEFAULT_MAX_TOKENS = 1024  # 增加到 1024 tokens，充分测试长上下文
 
-# 长文本测试：模拟论文总结任务
-LONG_CONTEXT_PROMPT = """Please read the following research paper abstract and provide a detailed summary:
+# 长文本测试：使用真实的 TurboQuant 论文内容
+LONG_CONTEXT_PROMPT = """Please read the following research paper and provide a detailed summary:
 
-Title: "Attention Is All You Need"
+TurboQuant: Online Vector Quantization with Near-optimal Distortion Rate
 
-Abstract: The dominant sequence transduction models are based on complex recurrent or convolutional neural networks that include an encoder and a decoder. The best performing models also connect the encoder and decoder through an attention mechanism. We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely. Experiments on two machine translation tasks show these models to be superior in quality while being more parallelizable and requiring significantly less time to train. Our model achieves 28.4 BLEU on the WMT 2014 English-to-German translation task, improving over the existing best results, including ensembles, by over 2 BLEU. On the WMT 2014 English-to-French translation task, our model establishes a new single-model state-of-the-art BLEU score of 41.8 after training for 3.5 days on eight GPUs, a small fraction of the training costs of the best models from the literature. We show that the Transformer generalizes well to other tasks by applying it successfully to English constituency parsing both with large and limited training data.
+Amir Zandieh, Majid Daliri, Majid Hadian, Vahab Mirrokni
 
-Introduction: Deep learning has revolutionized natural language processing, enabling machines to understand and generate human-like text. The Transformer architecture, introduced by Vaswani et al. in 2017, marked a paradigm shift from sequential processing to parallelizable attention mechanisms. Unlike recurrent neural networks (RNNs) that process tokens sequentially, Transformers process entire sequences simultaneously through self-attention layers.
+Abstract:
+Vector quantization, a problem rooted in Shannon's source coding theory, aims to quantize high-dimensional Euclidean vectors while minimizing distortion in their geometric structure. We propose TurboQuant to address both mean-squared error (MSE) and inner product distortion, overcoming limitations of existing methods that fail to achieve optimal distortion rates. Our data-oblivious algorithms, suitable for online applications, achieve near-optimal distortion rates (within a small constant factor) across all bit-widths and dimensions.
 
-The key innovation lies in the multi-head attention mechanism, which allows the model to attend to different representation subspaces at different positions. This architectural choice eliminates the sequential dependency bottleneck, enabling highly parallel computation during training. The attention function maps a query and a set of key-value pairs to an output, where the query, keys, values, and output are all vectors.
+TurboQuant achieves this by randomly rotating input vectors, inducing a concentrated Beta distribution on coordinates, and leveraging the near-independence property of distinct coordinates in high dimensions to simply apply optimal scalar quantizers per each coordinate. Recognizing that MSE-optimal quantizers introduce bias in inner product estimation, we propose a two-stage approach: applying an MSE quantizer followed by a 1-bit Quantized JL (QJL) transform on the residual, resulting in an unbiased inner product quantizer. We also provide a formal proof of the information-theoretic lower bounds on best achievable distortion rate by any vector quantizer, demonstrating that TurboQuant closely matches these bounds, differing only by a small constant (≈2.7) factor. Experimental results validate our theoretical findings, showing that for KV cache quantization, we achieve absolute quality neutrality with 3.5 bits per channel and marginal quality degradation with 2.5 bits per channel. Furthermore, in nearest neighbor search tasks, our method outperforms existing product quantization techniques in recall while reducing indexing time to virtually zero.
 
-In addition to attention sub-layers, the Transformer employs position-wise feed-forward networks and residual connections with layer normalization. The model architecture follows an encoder-decoder structure, with six identical layers stacked in each component.
+Introduction:
+Vector quantization (VQ) in Euclidean space is crucial for efficiently handling high-dimensional vectors across a spectrum of computational domains, from training and deploying large-scale AI and deep learning models to powering vector databases for search/retrieval systems. The core objective is to compress high dimensional vectors by quantizing them–converting floating-point coordinate values to low-bitwidth integers–while minimizing distortion, quantified by metrics such as mean-squared error (MSE) or inner product errors.
 
-Experimental results demonstrate significant improvements in translation quality and training efficiency. The Transformer achieves state-of-the-art performance on machine translation benchmarks while reducing training time from weeks to days. Its impact extends beyond translation to various NLP tasks including language modeling, question answering, and text summarization.
+This problem's roots trace back to Shannon's seminal work on Source Coding theory, which established that the least distortion achievable by block source codes, now known as vector quantizers, is defined by the Shannon distortion-rate function. Today, VQ plays a critical role in fundamental computational domains, including AI, deep learning, and search systems.
 
-The architectural simplicity and computational efficiency of Transformers have made them the foundation for subsequent large language models. Pre-trained models like BERT and GPT leverage the Transformer architecture, achieving remarkable results through transfer learning on massive text corpora.
+A key application of VQ is in the deployment of AI models, including large language models (LLMs). As LLM capabilities depend heavily on their model size and context length, serving them requires substantial memory demands and increased inference latency. This latency is primarily attributed to communication bottlenecks between HBM and SRAM on accelerators, or across distributed clusters. By compressing or quantizing model weights and activations, we can effectively mitigate these bottlenecks, resulting in significant reductions in inference costs.
 
-Despite their success, Transformers face challenges with quadratic complexity in sequence length. Recent research explores sparse attention patterns, linear attention mechanisms, and efficient approximations to scale to longer sequences.
+Decoder based transformer models present another compelling use case. These models must store key/value (KV) embeddings from previously generated tokens in the KV cache, the size of which scales with both model size (number of layers and attention heads) and context length. This scaling is a significant bottleneck in terms of memory usage and computational speed, especially for long context models. Therefore, reducing the KV cache size without compromising accuracy is essential.
 
-In conclusion, the Transformer architecture represents a fundamental advancement in neural network design for sequence modeling. Its attention-based approach has become the standard for modern NLP systems and continues to inspire innovations in deep learning research.
+Problem Definition:
+Formally, our goal is to design a quantization map, denoted as Q : R^d → {0, 1}^B, that transforms d-dimensional vectors to a binary string of B bits. If we set B = b · d for some b ≥ 0, this quantizer will have a bit-width of b, representing the average number of bits used to encode each real-valued coordinate of R^d.
 
-Please provide:
-1. Main contributions of this work
-2. Key technical innovations
-3. Performance highlights
-4. Impact on the field
-5. Limitations and future directions
+We aim to design quantizers that for any desired bit-width b minimize the following expected distortion measures:
+- MSE: D_mse := E[||x - Q^(-1)(Q(x))||^2]
+- Inner product error: D_prod := E[(<y,x> - <y,Q^(-1)(Q(x))>)^2]
+
+For inner-product quantizers, we require unbiasedness: E[<y, Q^(-1)(Q(x))>] = <y, x>
+
+Key Technical Contributions:
+1. MSE Optimized TurboQuant: Our first VQ algorithm minimizes MSE distortion by applying random rotation to input vectors, inducing a Beta distribution on each coordinate. We design optimal Lloyd-Max quantizers for each coordinate by solving a continuous k-means problem.
+
+2. Inner Product TurboQuant: We show that MSE optimized quantizers are biased for inner product estimation. Our solution is a two-stage algorithm that first applies Q_mse with bit-width one less than target, then applies QJL on the residual error.
+
+3. Theoretical Guarantees: We prove that TurboQuant achieves near-optimal distortion bounds, differing from information-theoretic lower bounds by only a small constant factor (≈2.7).
+
+Please provide a comprehensive summary covering:
+1. Main contributions and innovations
+2. Technical approach (MSE and inner product quantization)
+3. Theoretical guarantees
+4. Experimental results on KV cache compression
+5. Implications for LLM deployment
 """
 
 
