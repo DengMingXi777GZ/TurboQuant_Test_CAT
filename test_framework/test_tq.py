@@ -28,6 +28,20 @@ from typing import List, Dict, Optional, Tuple
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+# 导入测试数据集
+from datasets import TEST_DATASETS, get_test_prompt
+
+# 使用多文档QA作为主要测试（最具挑战性）
+DEFAULT_DATASET = "multi_doc_qa"
+
+def get_long_prompt(dataset_key: str = None, repeat: int = 1) -> str:
+    """获取长文本测试prompt，可重复多次增加长度"""
+    prompt = get_test_prompt(dataset_key or DEFAULT_DATASET)
+    if repeat > 1:
+        # 重复内容增加输入长度，模拟超长文档
+        prompt = prompt + ("\n\n[Additional context for longer context testing]\n" + prompt) * (repeat - 1)
+    return prompt
+
 
 MODEL_NAME = "Qwen35_2b"
 MODEL_PATH = "/mnt/data1/dmx/Models/Qwen35_2b"
@@ -287,8 +301,8 @@ def test_context_extend(config: str, port: int) -> Dict:
         vram_after_start = get_vram()
         print(f"    VRAM after start: {vram_after_start}")
 
-        # 使用长文本测试
-        result = generate_request(port, LONG_CONTEXT_PROMPT, DEFAULT_MAX_TOKENS)
+        # 使用长文本测试（重复3次以增加输入长度到10k+ tokens）
+        result = generate_request(port, get_long_prompt(repeat=3), DEFAULT_MAX_TOKENS)
 
         vram_after_req = get_vram()
         print(f"    VRAM after request: {vram_after_req}")
@@ -358,7 +372,7 @@ def test_concurrency(config: str, port: int, max_model_len: int = 65536, concurr
 
         with ThreadPoolExecutor(max_workers=concurrency) as executor:
             futures = [
-                executor.submit(generate_request, port, LONG_CONTEXT_PROMPT, DEFAULT_MAX_TOKENS)
+                executor.submit(generate_request, port, get_long_prompt(repeat=2), DEFAULT_MAX_TOKENS)
                 for _ in range(concurrency)
             ]
 
