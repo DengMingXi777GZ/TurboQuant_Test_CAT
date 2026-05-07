@@ -216,40 +216,61 @@ class TurboQuantAPITester:
             if response.status_code != 200:
                 self.logger.warning(f"Failed to get metrics: {response.status_code}")
                 return None
-            
+
             metrics_text = response.text
-            
-            # 解析 Prometheus 格式的 metrics
+
             memory_used = []
             memory_total = []
-            
+
             for line in metrics_text.split('\n'):
-                # 查找 GPU 显存使用（vLLM 的 metrics）
-                if 'vllm:gpu_cache_usage_perc' in line:
-                    # 这个指标表示 KV cache 使用比例
-                    pass
-                
-                # 或者查找 nvidia_gpu 相关指标
-                if 'nvidia_gpu_memory_used_bytes' in line and not line.startswith('#'):
+                # 跳过注释行
+                if line.startswith('#'):
+                    continue
+
+                # 查找显存相关指标
+                lower_line = line.lower()
+                if any(x in lower_line for x in ['memory', 'gpu', 'vram']):
                     try:
-                        value = float(line.split()[-1])
-                        memory_used.append(value / 1024 / 1024)  # bytes -> MB
-                    except:
+                        parts = line.split()
+                        if len(parts) >= 2:
+                            value = float(parts[-1])
+                            # 转换单位（假设 bytes）
+                            value_mb = value / 1024 / 1024
+
+                            if 'total' in lower_line:
+                                memory_total.append(value_mb)
+                            elif 'used' in lower_line or 'allocated' in lower_line:
+                                memory_used.append(value_mb)
+                            else:
+                                memory_used.append(value_mb)
+                    except Exception:
                         pass
-                
-                if 'nvidia_gpu_memory_total_bytes' in line and not line.startswith('#'):
-                    try:
-                        value = float(line.split()[-1])
-                        memory_total.append(value / 1024 / 1024)
-                    except:
-                        pass
-            
+
+            # 如果 vLLM metrics 中没有，使用 nvidia-smi
+            if not memory_used:
+                self.logger.info("Trying nvidia-smi for memory info...")
+                try:
+                    import subprocess
+                    result = subprocess.run(
+                        ['nvidia-smi', '--query-gpu=memory.used,memory.total', '--format=csv,noheader,nounits'],
+                        capture_output=True, text=True, timeout=5
+                    )
+                    if result.returncode == 0:
+                        for line in result.stdout.strip().split('\n'):
+                            parts = line.split(',')
+                            if len(parts) >= 2:
+                                memory_used.append(float(parts[0].strip()))
+                                memory_total.append(float(parts[1].strip()))
+                        self.logger.info(f"Got memory from nvidia-smi: {memory_used} MB")
+                except Exception as e:
+                    self.logger.warning(f"nvidia-smi failed: {e}")
+
             return MemoryMetrics(
                 gpu_memory_used_mb=memory_used,
                 gpu_memory_total_mb=memory_total,
                 timestamp=datetime.now().isoformat()
             )
-            
+
         except Exception as e:
             self.logger.error(f"Error getting metrics: {e}")
             return None
