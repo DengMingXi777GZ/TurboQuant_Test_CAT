@@ -37,9 +37,36 @@ CONDA_ENV = "vllm_qw"
 
 SERVER_PORT = 8001
 SERVER_START_TIMEOUT = 180
-DEFAULT_MAX_TOKENS = 128
+DEFAULT_MAX_TOKENS = 1024  # 增加到 1024 tokens，充分测试长上下文
 
-TEST_PROMPT = "Explain machine learning in detail. " * 20
+# 长文本测试：模拟论文总结任务
+LONG_CONTEXT_PROMPT = """Please read the following research paper abstract and provide a detailed summary:
+
+Title: "Attention Is All You Need"
+
+Abstract: The dominant sequence transduction models are based on complex recurrent or convolutional neural networks that include an encoder and a decoder. The best performing models also connect the encoder and decoder through an attention mechanism. We propose a new simple network architecture, the Transformer, based solely on attention mechanisms, dispensing with recurrence and convolutions entirely. Experiments on two machine translation tasks show these models to be superior in quality while being more parallelizable and requiring significantly less time to train. Our model achieves 28.4 BLEU on the WMT 2014 English-to-German translation task, improving over the existing best results, including ensembles, by over 2 BLEU. On the WMT 2014 English-to-French translation task, our model establishes a new single-model state-of-the-art BLEU score of 41.8 after training for 3.5 days on eight GPUs, a small fraction of the training costs of the best models from the literature. We show that the Transformer generalizes well to other tasks by applying it successfully to English constituency parsing both with large and limited training data.
+
+Introduction: Deep learning has revolutionized natural language processing, enabling machines to understand and generate human-like text. The Transformer architecture, introduced by Vaswani et al. in 2017, marked a paradigm shift from sequential processing to parallelizable attention mechanisms. Unlike recurrent neural networks (RNNs) that process tokens sequentially, Transformers process entire sequences simultaneously through self-attention layers.
+
+The key innovation lies in the multi-head attention mechanism, which allows the model to attend to different representation subspaces at different positions. This architectural choice eliminates the sequential dependency bottleneck, enabling highly parallel computation during training. The attention function maps a query and a set of key-value pairs to an output, where the query, keys, values, and output are all vectors.
+
+In addition to attention sub-layers, the Transformer employs position-wise feed-forward networks and residual connections with layer normalization. The model architecture follows an encoder-decoder structure, with six identical layers stacked in each component.
+
+Experimental results demonstrate significant improvements in translation quality and training efficiency. The Transformer achieves state-of-the-art performance on machine translation benchmarks while reducing training time from weeks to days. Its impact extends beyond translation to various NLP tasks including language modeling, question answering, and text summarization.
+
+The architectural simplicity and computational efficiency of Transformers have made them the foundation for subsequent large language models. Pre-trained models like BERT and GPT leverage the Transformer architecture, achieving remarkable results through transfer learning on massive text corpora.
+
+Despite their success, Transformers face challenges with quadratic complexity in sequence length. Recent research explores sparse attention patterns, linear attention mechanisms, and efficient approximations to scale to longer sequences.
+
+In conclusion, the Transformer architecture represents a fundamental advancement in neural network design for sequence modeling. Its attention-based approach has become the standard for modern NLP systems and continues to inspire innovations in deep learning research.
+
+Please provide:
+1. Main contributions of this work
+2. Key technical innovations
+3. Performance highlights
+4. Impact on the field
+5. Limitations and future directions
+"""
 
 
 def wait_for_server(port: int, timeout: int = 120) -> bool:
@@ -218,7 +245,8 @@ def test_context_extend(config: str, port: int) -> Dict:
 
     results = []
 
-    for max_len in [8192, 10240, 12288, 14336, 16384, 18432, 20480]:
+    # H20 96GB 可以测试更大的上下文
+    for max_len in [32768, 49152, 65536, 81920, 98304, 114688, 131072]:
         print(f"\n  测试 max_model_len={max_len}...")
 
         vram_before = get_vram()
@@ -243,8 +271,8 @@ def test_context_extend(config: str, port: int) -> Dict:
         vram_after_start = get_vram()
         print(f"    VRAM after start: {vram_after_start}")
 
-        test_prompt = TEST_PROMPT * 4
-        result = generate_request(port, test_prompt, DEFAULT_MAX_TOKENS)
+        # 使用长文本测试
+        result = generate_request(port, LONG_CONTEXT_PROMPT, DEFAULT_MAX_TOKENS)
 
         vram_after_req = get_vram()
         print(f"    VRAM after request: {vram_after_req}")
@@ -274,9 +302,10 @@ def test_context_extend(config: str, port: int) -> Dict:
     return results
 
 
-def test_concurrency(config: str, port: int, max_model_len: int = 8192, concurrency_levels: List[int] = None) -> Dict:
+def test_concurrency(config: str, port: int, max_model_len: int = 65536, concurrency_levels: List[int] = None) -> Dict:
+    # H20 96GB 可以测试更高的并发
     if concurrency_levels is None:
-        concurrency_levels = [1, 2, 4, 8, 16]
+        concurrency_levels = [50, 100, 200, 300, 500]
 
     print(f"\n{'='*60}")
     print(f"🧪 方案 B: 并发请求测试 ({config})")
@@ -313,7 +342,7 @@ def test_concurrency(config: str, port: int, max_model_len: int = 8192, concurre
 
         with ThreadPoolExecutor(max_workers=concurrency) as executor:
             futures = [
-                executor.submit(generate_request, port, TEST_PROMPT, DEFAULT_MAX_TOKENS)
+                executor.submit(generate_request, port, LONG_CONTEXT_PROMPT, DEFAULT_MAX_TOKENS)
                 for _ in range(concurrency)
             ]
 
