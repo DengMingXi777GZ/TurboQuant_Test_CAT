@@ -222,7 +222,8 @@ def main():
             worker.model_runner,
             key_bits={key_bits},
             value_bits={value_bits},
-            buffer_size={buffer_size},
+            value_group_size={value_bits},  # 复用 value_bits 作为 group_size
+            ring_capacity={buffer_size},
             mode=MODE_HYBRID,
         )
 
