@@ -301,6 +301,7 @@ def generate_request(port: int, prompt: str, max_tokens: int = 128) -> Optional[
         first_token_time = None
         last_token_time = None
         token_times = []
+        chunk_count = 0
 
         for line in resp.iter_lines():
             if not line:
@@ -314,6 +315,7 @@ def generate_request(port: int, prompt: str, max_tokens: int = 128) -> Optional[
                 break
 
             chunk_time = time.perf_counter()
+            chunk_count += 1
 
             try:
                 chunk_data = json.loads(data_str)
@@ -333,7 +335,21 @@ def generate_request(port: int, prompt: str, max_tokens: int = 128) -> Optional[
                 continue
 
         total_elapsed = time.perf_counter() - start
-        token_count = len(full_text) // 4  # 粗略估算：约4个字符一个token
+
+        # 使用 chunk 数量作为 token 数的近似值（更准确）
+        # 因为 streaming 模式下每个 chunk 大约 1-2 个 token
+        token_count = max(chunk_count, len(full_text.split())) if full_text else 0
+
+        # 如果还是 0，尝试从 text 长度估算
+        if token_count == 0 and full_text:
+            # 简单估算：空格+单词数 或 字符数/4
+            token_count = len(full_text.split()) or (len(full_text) // 4)
+
+        if token_count == 0:
+            # 至少返回 1，避免除零错误
+            token_count = 1
+
+        print(f"    [DEBUG] chunk_count={chunk_count}, text_len={len(full_text)}, tokens={token_count}")
 
         ttft_ms = (first_token_time - start) * 1000 if first_token_time else 0
 
