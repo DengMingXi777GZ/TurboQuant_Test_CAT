@@ -1,5 +1,4 @@
-(vllm) (vllm_qw) deng@bm-220ay4m:~/Code/TurboQuant_Test_CAT/test_framework$ # 启动 TurboQuant 测试（自动跑 baseline + 对比）
-python test_tq.py --config turboquant --turboquant-root ../
+(vllm) (vllm_qw) deng@bm-220ay4m:~/Code/TurboQuant_Test_CAT/test_framework$ python test_tq.py --config turboquant --turboquant-root ../
 ============================================================
 🧪 TurboQuant 真实效果测试
 ============================================================
@@ -12,15 +11,15 @@ python test_tq.py --config turboquant --turboquant-root ../
 ============================================================
 🧪 Baseline Test (无 TurboQuant)
 ============================================================
-  ❌ Error(stderr tail): llm/lib/python3.12/site-packages/flashinfer/data/spdlog/include --compiler-options=-fPIC --expt-relaxed-constexpr -DFLASHINFER_ENABLE_FP8_E8M0 -DFLASHINFER_ENABLE_FP4_E2M1 --threads=1 -use_fast_math -DFLASHINFER_ENABLE_F16 -DFLASHINFER_ENABLE_BF16 -DFLASHINFER_ENABLE_FP8_E4M3 -DFLASHINFER_ENABLE_FP8_E5M2 -DNDEBUG -O3 -gencode=arch=compute_90a,code=sm_90a -DCUTE_SM90_EXTENDED_MMA_SHAPES_ENABLED -DFLASHINFER_ENABLE_FP8_E8M0 -DFLASHINFER_ENABLE_FP4_E2M1 -DFLAT_SM90A_ENABLED -std=c++20 -c /home/deng/.cache/flashinfer/0.6.6/90a/generated/gdn_prefill_sm90/prefill_kernel_delta_rule_sm90.cu -o /home/deng/.cache/flashinfer/0.6.6/90a/cached_ops/gdn_prefill_sm90/prefill_kernel_delta_rule_sm90.cuda.o 
+  ❌ Error(stderr tail): lib/python3.12/site-packages/flashinfer/data/spdlog/include --compiler-options=-fPIC --expt-relaxed-constexpr -DFLASHINFER_ENABLE_FP8_E8M0 -DFLASHINFER_ENABLE_FP4_E2M1 --threads=1 -use_fast_math -DFLASHINFER_ENABLE_F16 -DFLASHINFER_ENABLE_BF16 -DFLASHINFER_ENABLE_FP8_E4M3 -DFLASHINFER_ENABLE_FP8_E5M2 -DNDEBUG -O3 -gencode=arch=compute_90a,code=sm_90a -DCUTE_SM90_EXTENDED_MMA_SHAPES_ENABLED -DFLASHINFER_ENABLE_FP8_E8M0 -DFLASHINFER_ENABLE_FP4_E2M1 -DFLAT_SM90A_ENABLED -std=c++20 -c /home/deng/.cache/flashinfer/0.6.6/90a/generated/gdn_prefill_sm90/gdn_prefill_kernel_bf16_g1b0a1i1.cu -o /home/deng/.cache/flashinfer/0.6.6/90a/cached_ops/gdn_prefill_sm90/gdn_prefill_kernel_bf16_g1b0a1i1.cuda.o 
 [rank0]: nvcc fatal   : Value 'c++20' is not defined for option 'std'
 [rank0]: ninja: build stopped: subcommand failed.
 
 
 Processed prompts:   0%|          | 0/1 [00:00<?, ?it/s, est. speed input: 0.00 toks/s, output: 0.00 toks/s]
-[rank0]:[W507 03:42:22.682913960 ProcessGroupNCCL.cpp:1553] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+[rank0]:[W507 03:46:43.031916511 ProcessGroupNCCL.cpp:1553] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
 
-  📌 stdout tail: cached_reqs=CachedRequestData(req_ids=[],resumed_req_ids=set(),new_token_ids_lens=[],all_token_ids_lens={},new_block_ids=[],num_computed_tokens=[],num_output_tokens=[]), num_scheduled_tokens={0-b72491b7: 8}, total_num_scheduled_tokens=8, scheduled_spec_decode_tokens={}, scheduled_encoder_inputs={}, num_common_prefix_blocks=[0, 0, 0, 0], finished_req_ids=[], free_encoder_mm_hashes=[], preempted_req_ids=[], has_structured_output_requests=false, pending_structured_output_tokens=false, num_invalid_spec_tokens=null, kv_connector_metadata=null, ec_connector_metadata=null, new_block_ids_to_zero=[4])
+  📌 stdout tail: cached_reqs=CachedRequestData(req_ids=[],resumed_req_ids=set(),new_token_ids_lens=[],all_token_ids_lens={},new_block_ids=[],num_computed_tokens=[],num_output_tokens=[]), num_scheduled_tokens={0-8c3cb1d7: 8}, total_num_scheduled_tokens=8, scheduled_spec_decode_tokens={}, scheduled_encoder_inputs={}, num_common_prefix_blocks=[0, 0, 0, 0], finished_req_ids=[], free_encoder_mm_hashes=[], preempted_req_ids=[], has_structured_output_requests=false, pending_structured_output_tokens=false, num_invalid_spec_tokens=null, kv_connector_metadata=null, ec_connector_metadata=null, new_block_ids_to_zero=[4])
 
 
 ------------------------------------------------------------
@@ -29,34 +28,20 @@ Processed prompts:   0%|          | 0/1 [00:00<?, ?it/s, est. speed input: 0.00 
 ============================================================
 🧪 TurboQuant Test
 ============================================================
-  ❌ Error(stderr tail): wp_cg.py", line 119, in <module>
-[rank0]:     main()
-[rank0]:   File "/tmp/tmpkk4wp_cg.py", line 49, in main
-[rank0]:     num_tq_layers = executor.collective_rpc(install_tq)
-[rank0]:                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-[rank0]:   File "/home/deng/vllm/lib/python3.12/site-packages/vllm/v1/executor/uniproc_executor.py", line 80, in collective_rpc
-[rank0]:     result = run_method(self.driver_worker, method, args, kwargs)
-[rank0]:              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-[rank0]:   File "/home/deng/vllm/lib/python3.12/site-packages/vllm/v1/serial_utils.py", line 510, in run_method
-[rank0]:     return func(*args, **kwargs)
-[rank0]:            ^^^^^^^^^^^^^^^^^^^^^
-[rank0]:   File "/tmp/tmpkk4wp_cg.py", line 41, in install_tq
-[rank0]:     return install_hooks(
-[rank0]:            ^^^^^^^^^^^^^^
-[rank0]: TypeError: install_hooks() got an unexpected keyword argument 'buffer_size'
-[rank0]:[W507 03:42:52.827909367 ProcessGroupNCCL.cpp:1553] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+  ❌ Error(stderr tail): isystem /home/deng/vllm/lib/python3.12/site-packages/flashinfer/data/spdlog/include --compiler-options=-fPIC --expt-relaxed-constexpr -DFLASHINFER_ENABLE_FP8_E8M0 -DFLASHINFER_ENABLE_FP4_E2M1 --threads=1 -use_fast_math -DFLASHINFER_ENABLE_F16 -DFLASHINFER_ENABLE_BF16 -DFLASHINFER_ENABLE_FP8_E4M3 -DFLASHINFER_ENABLE_FP8_E5M2 -DNDEBUG -O3 -gencode=arch=compute_90a,code=sm_90a -DCUTE_SM90_EXTENDED_MMA_SHAPES_ENABLED -DFLASHINFER_ENABLE_FP8_E8M0 -DFLASHINFER_ENABLE_FP4_E2M1 -DFLAT_SM90A_ENABLED -std=c++20 -c /home/deng/.cache/flashinfer/0.6.6/90a/generated/gdn_prefill_sm90/gdn_prefill_launcher.cu -o /home/deng/.cache/flashinfer/0.6.6/90a/cached_ops/gdn_prefill_sm90/gdn_prefill_launcher.cuda.o 
+[rank0]: nvcc fatal   : Value 'c++20' is not defined for option 'std'
+[rank0]: ninja: build stopped: subcommand failed.
 
-  📌 stdout tail: ilization from 0.9000 to 0.9005 to maintain the same effective KV cache size.
-INFO 05-07 03:42:51 [kv_cache_utils.py:1319] GPU KV cache size: 1,734,272 tokens
-INFO 05-07 03:42:51 [kv_cache_utils.py:1324] Maximum concurrency for 8,192 tokens per request: 671.21x
-INFO 05-07 03:42:51 [gpu_model_runner.py:6046] Graph capturing finished in 1 secs, took 0.04 GiB
-INFO 05-07 03:42:51 [gpu_worker.py:597] CUDA graph pool memory: 0.04 GiB (actual), 0.05 GiB (estimated), difference: 0.01 GiB (33.3%).
-INFO 05-07 03:42:51 [core.py:283] init engine (profile, create kv cache, warmup model) took 10.05 seconds
+
+Processed prompts:   0%|          | 0/1 [00:00<?, ?it/s, est. speed input: 0.00 toks/s, output: 0.00 toks/s]
+[rank0]:[W507 03:47:14.653511867 ProcessGroupNCCL.cpp:1553] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+
+  📌 stdout tail: cached_reqs=CachedRequestData(req_ids=[],resumed_req_ids=set(),new_token_ids_lens=[],all_token_ids_lens={},new_block_ids=[],num_computed_tokens=[],num_output_tokens=[]), num_scheduled_tokens={0-82ff4d4e: 8}, total_num_scheduled_tokens=8, scheduled_spec_decode_tokens={}, scheduled_encoder_inputs={}, num_common_prefix_blocks=[0, 0, 0, 0], finished_req_ids=[], free_encoder_mm_hashes=[], preempted_req_ids=[], has_structured_output_requests=false, pending_structured_output_tokens=false, num_invalid_spec_tokens=null, kv_connector_metadata=null, ec_connector_metadata=null, new_block_ids_to_zero=[4])
 
 
 💾 结果已保存:
-   JSON: results/test_results_20260507_034253.json
-   Markdown: results/test_report_20260507_034253.md
+   JSON: results/test_results_20260507_034715.json
+   Markdown: results/test_report_20260507_034715.md
 
 ✅ 测试完成!
 (vllm) (vllm_qw) deng@bm-220ay4m:~/Code/TurboQuant_Test_CAT/test_framework$ 
