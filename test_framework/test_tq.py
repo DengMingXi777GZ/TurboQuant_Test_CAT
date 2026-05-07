@@ -138,17 +138,24 @@ def kill_process_on_port(port: int):
 
 def start_vllm_server(config: str, max_model_len: int, port: int) -> Optional[subprocess.Popen]:
     env = os.environ.copy()
-    env["TURBOQUANT_REPO_ROOT"] = str(Path(__file__).parent.parent)
+    turboquant_root = str(Path(__file__).parent.parent)
+    env["TURBOQUANT_REPO_ROOT"] = turboquant_root
+    env["PYTHONPATH"] = f"{turboquant_root}:{env.get('PYTHONPATH', '')}"
 
     bash_cmd = f"source {CONDA_SH} && conda activate {CONDA_ENV} && "
 
     if config == "turboquant":
+        print(f"    [TQ] 启用 TurboQuant: key_bits=3, value_bits=2, buffer_size=128")
         bash_cmd += (
             f"export TURBOQUANT_ENABLED=1 && "
             f"export TURBOQUANT_KEY_BITS=3 && "
             f"export TURBOQUANT_VALUE_BITS=2 && "
             f"export TURBOQUANT_BUFFER_SIZE=128 && "
+            f"export PYTHONPATH={turboquant_root}:$PYTHONPATH && "
         )
+    else:
+        print(f"    [TQ] TurboQuant 关闭 (baseline)")
+        bash_cmd += "export TURBOQUANT_ENABLED=0 && "
 
     # 与 start_vllm_qwen35_2b.sh 保持一致
     bash_cmd += (
@@ -161,7 +168,7 @@ def start_vllm_server(config: str, max_model_len: int, port: int) -> Optional[su
         f"--trust-remote-code"
     )
 
-    print(f"    [CMD] {bash_cmd[:150]}...")
+    print(f"    [CMD] {bash_cmd[:200]}...")
 
     process = subprocess.Popen(
         ["bash", "-c", bash_cmd],
@@ -173,10 +180,10 @@ def start_vllm_server(config: str, max_model_len: int, port: int) -> Optional[su
         bufsize=1
     )
 
-    time.sleep(3)
+    time.sleep(5)
     if process.poll() is not None:
         output = process.stdout.read() if process.stdout else ""
-        print(f"    [ERROR] 进程立即退出: {output[:500]}")
+        print(f"    [ERROR] 进程立即退出: {output[:1000]}")
         return None
 
     return process
