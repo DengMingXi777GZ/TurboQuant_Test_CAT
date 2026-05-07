@@ -662,12 +662,12 @@ def main():
         tq_results = run_tq_tests(port)
     else:
         print("\n" + "-"*60)
-        print("先测试 Baseline...")
-        baseline_results = run_baseline_tests(port)
+        print("先测试 TurboQuant...")
+        tq_results = run_tq_tests(port)
 
         print("\n" + "-"*60)
-        print("再测试 TurboQuant...")
-        tq_results = run_tq_tests(port)
+        print("再测试 Baseline...")
+        baseline_results = run_baseline_tests(port)
 
         if baseline_results and tq_results:
             compare_results(baseline_results, tq_results)
