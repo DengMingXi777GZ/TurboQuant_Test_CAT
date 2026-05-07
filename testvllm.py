@@ -6,8 +6,8 @@ url = "http://localhost:8000/v1/completions"
 # 测试请求（你可以随便改 prompt）
 data = {
     "model": "Qwen35_2b",
-    "prompt": "你好，请简单介绍一下自己",
-    "max_tokens": 128,
+    "prompt": "讲个很好笑的笑话",
+    "max_tokens": 1024,
     "temperature": 0.7
 }
 
