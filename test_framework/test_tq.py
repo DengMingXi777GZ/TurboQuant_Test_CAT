@@ -58,7 +58,7 @@ def get_long_prompt(chars: int = 10000) -> str:
 
 MODEL_NAME = "Qwen35_2b"
 MODEL_PATH = "/mnt/data1/dmx/Models/Qwen35_2b"
-UV_VLLM_BIN = "/home/deng/vllm/bin/vllm"
+UV_VLLM_BIN = "/home/dengmingxi/vllm/bin/vllm"
 CONDA_SH = "/mnt/data1/dmx/miniconda3/etc/profile.d/conda.sh"
 CONDA_ENV = "vllm_qw"
 
@@ -320,6 +320,11 @@ def generate_request(port: int, prompt: str, max_tokens: int = 128) -> Optional[
             try:
                 chunk_data = json.loads(data_str)
                 delta = chunk_data.get("choices", [{}])[0].get("delta", {})
+                # Debug: 打印第一个 chunk 的结构
+                if chunk_count == 1:
+                    print(f"    [DEBUG] chunk_data keys: {chunk_data.keys()}")
+                    print(f"    [DEBUG] choices[0] keys: {chunk_data.get('choices', [{}])[0].keys() if chunk_data.get('choices') else 'none'}")
+                    print(f"    [DEBUG] delta keys: {delta.keys()}, delta: {str(delta)[:200]}")
                 # vLLM streaming 响应格式: delta.content
                 text = delta.get("content") or delta.get("text") or ""
                 if text:
