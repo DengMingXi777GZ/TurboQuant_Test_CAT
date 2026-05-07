@@ -150,27 +150,60 @@ def start_vllm_server(config: str, max_model_len: int, port: int) -> Optional[su
             f"export TURBOQUANT_BUFFER_SIZE=128 && "
         )
 
+    # 与 start_vllm_qwen35_2b.sh 保持一致
     bash_cmd += (
         f"exec {UV_VLLM_BIN} serve {MODEL_PATH} "
         f"--host 0.0.0.0 --port {port} "
         f"--served-model-name {MODEL_NAME} "
-        f"--gpu-memory-utilization 0.3 "
+        f"--gpu-memory-utilization 0.9 "
         f"--max-model-len {max_model_len} "
-        f"--tensor-parallel-size 1 "
-        f"--trust-remote-code "
-        f"--enforce-eager "
-        f"--gdn-prefill-backend triton"
+        f"--gdn-prefill-backend triton "
+        f"--trust-remote-code"
     )
+
+    print(f"    [CMD] {bash_cmd[:150]}...")
 
     process = subprocess.Popen(
         ["bash", "-c", bash_cmd],
         env=env,
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        preexec_fn=os.setsid
+        stderr=subprocess.STDOUT,
+        preexec_fn=os.setsid,
+        text=True,
+        bufsize=1
     )
 
+    time.sleep(3)
+    if process.poll() is not None:
+        output = process.stdout.read() if process.stdout else ""
+        print(f"    [ERROR] 进程立即退出: {output[:500]}")
+        return None
+
     return process
+
+
+def get_server_output(process: subprocess.Popen, timeout: int = 30) -> str:
+    """获取服务器启动日志，用于诊断问题"""
+    output = []
+    try:
+        import select
+        import fcntl
+        fd = process.stdout.fileno()
+        fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+        fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+
+        start = time.time()
+        while time.time() - start < timeout:
+            if select.select([process.stdout], [], [], 1)[0]:
+                line = process.stdout.readline()
+                if line:
+                    output.append(line)
+                    print(f"    [vllm] {line.rstrip()}")
+                elif process.poll() is not None:
+                    break
+    except:
+        pass
+    return "".join(output)
 
 
 def stop_vllm_server(process: subprocess.Popen, port: int):
@@ -207,9 +240,9 @@ def generate_request(port: int, prompt: str, max_tokens: int = 128) -> Optional[
             elapsed = time.perf_counter() - start
             return {"success": False, "error": f"HTTP {resp.status_code}", "elapsed": elapsed}
 
+        full_text = ""
         first_token_time = None
         last_token_time = None
-        token_count = 0
         token_times = []
 
         for line in resp.iter_lines():
@@ -224,26 +257,26 @@ def generate_request(port: int, prompt: str, max_tokens: int = 128) -> Optional[
                 break
 
             chunk_time = time.perf_counter()
-            token_times.append(chunk_time)
-
-            if first_token_time is None:
-                first_token_time = chunk_time
-
-            last_token_time = chunk_time
 
             try:
                 chunk_data = json.loads(data_str)
+                delta = chunk_data.get("choices", [{}])[0].get("delta", {})
+                text = delta.get("text", "")
+                if text:
+                    full_text += text
+
+                if first_token_time is None:
+                    first_token_time = chunk_time
+                last_token_time = chunk_time
+                token_times.append(chunk_time)
+
                 if chunk_data.get("choices", [{}])[0].get("finish_reason"):
                     break
             except json.JSONDecodeError:
                 continue
 
         total_elapsed = time.perf_counter() - start
-
-        if token_count == 0 and token_times:
-            token_count = len(token_times)
-        elif token_count == 0:
-            return {"success": False, "error": "No tokens received", "elapsed": total_elapsed}
+        token_count = len(full_text) // 4  # 粗略估算：约4个字符一个token
 
         ttft_ms = (first_token_time - start) * 1000 if first_token_time else 0
 
@@ -275,8 +308,8 @@ def test_context_extend(config: str, port: int) -> Dict:
 
     results = []
 
-    # H20 96GB 可以测试更大的上下文
-    for max_len in [32768, 49152, 65536, 81920, 98304, 114688, 131072]:
+    # 使用与 shell 脚本一致的配置，测试更小的 max_model_len
+    for max_len in [8192, 10240, 12288, 14336, 16384, 20480, 32768]:
         print(f"\n  测试 max_model_len={max_len}...")
 
         vram_before = get_vram()
@@ -291,7 +324,8 @@ def test_context_extend(config: str, port: int) -> Dict:
         server_ready = wait_for_server(port, SERVER_START_TIMEOUT)
 
         if not server_ready:
-            print(f"    ❌ 服务启动超时")
+            print(f"    ❌ 服务启动超时，打印日志:")
+            get_server_output(process, timeout=10)
             stop_vllm_server(process, port)
             results.append({"max_model_len": max_len, "success": False, "error": "启动超时"})
             continue
@@ -354,7 +388,8 @@ def test_concurrency(config: str, port: int, max_model_len: int = 65536, concurr
 
         server_ready = wait_for_server(port, SERVER_START_TIMEOUT)
         if not server_ready:
-            print(f"    ❌ 服务启动超时")
+            print(f"    ❌ 服务启动超时，打印日志:")
+            get_server_output(process, timeout=10)
             stop_vllm_server(process, port)
             results.append({"concurrency": concurrency, "success": False, "error": "启动超时"})
             continue
