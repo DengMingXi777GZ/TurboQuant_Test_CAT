@@ -11,15 +11,15 @@
 ============================================================
 🧪 Baseline Test (无 TurboQuant)
 ============================================================
-  ❌ Error(stderr tail): lib/python3.12/site-packages/flashinfer/data/spdlog/include --compiler-options=-fPIC --expt-relaxed-constexpr -DFLASHINFER_ENABLE_FP8_E8M0 -DFLASHINFER_ENABLE_FP4_E2M1 --threads=1 -use_fast_math -DFLASHINFER_ENABLE_F16 -DFLASHINFER_ENABLE_BF16 -DFLASHINFER_ENABLE_FP8_E4M3 -DFLASHINFER_ENABLE_FP8_E5M2 -DNDEBUG -O3 -gencode=arch=compute_90a,code=sm_90a -DCUTE_SM90_EXTENDED_MMA_SHAPES_ENABLED -DFLASHINFER_ENABLE_FP8_E8M0 -DFLASHINFER_ENABLE_FP4_E2M1 -DFLAT_SM90A_ENABLED -std=c++20 -c /home/deng/.cache/flashinfer/0.6.6/90a/generated/gdn_prefill_sm90/gdn_prefill_kernel_bf16_g1b0a1i1.cu -o /home/deng/.cache/flashinfer/0.6.6/90a/cached_ops/gdn_prefill_sm90/gdn_prefill_kernel_bf16_g1b0a1i1.cuda.o 
+  ❌ Error(stderr tail): isystem /home/deng/vllm/lib/python3.12/site-packages/flashinfer/data/spdlog/include --compiler-options=-fPIC --expt-relaxed-constexpr -DFLASHINFER_ENABLE_FP8_E8M0 -DFLASHINFER_ENABLE_FP4_E2M1 --threads=1 -use_fast_math -DFLASHINFER_ENABLE_F16 -DFLASHINFER_ENABLE_BF16 -DFLASHINFER_ENABLE_FP8_E4M3 -DFLASHINFER_ENABLE_FP8_E5M2 -DNDEBUG -O3 -gencode=arch=compute_90a,code=sm_90a -DCUTE_SM90_EXTENDED_MMA_SHAPES_ENABLED -DFLASHINFER_ENABLE_FP8_E8M0 -DFLASHINFER_ENABLE_FP4_E2M1 -DFLAT_SM90A_ENABLED -std=c++20 -c /home/deng/.cache/flashinfer/0.6.6/90a/generated/gdn_prefill_sm90/gdn_prefill_launcher.cu -o /home/deng/.cache/flashinfer/0.6.6/90a/cached_ops/gdn_prefill_sm90/gdn_prefill_launcher.cuda.o 
 [rank0]: nvcc fatal   : Value 'c++20' is not defined for option 'std'
 [rank0]: ninja: build stopped: subcommand failed.
 
 
 Processed prompts:   0%|          | 0/1 [00:00<?, ?it/s, est. speed input: 0.00 toks/s, output: 0.00 toks/s]
-[rank0]:[W507 03:46:43.031916511 ProcessGroupNCCL.cpp:1553] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+[rank0]:[W507 04:36:54.494591818 ProcessGroupNCCL.cpp:1553] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
 
-  📌 stdout tail: cached_reqs=CachedRequestData(req_ids=[],resumed_req_ids=set(),new_token_ids_lens=[],all_token_ids_lens={},new_block_ids=[],num_computed_tokens=[],num_output_tokens=[]), num_scheduled_tokens={0-8c3cb1d7: 8}, total_num_scheduled_tokens=8, scheduled_spec_decode_tokens={}, scheduled_encoder_inputs={}, num_common_prefix_blocks=[0, 0, 0, 0], finished_req_ids=[], free_encoder_mm_hashes=[], preempted_req_ids=[], has_structured_output_requests=false, pending_structured_output_tokens=false, num_invalid_spec_tokens=null, kv_connector_metadata=null, ec_connector_metadata=null, new_block_ids_to_zero=[4])
+  📌 stdout tail: cached_reqs=CachedRequestData(req_ids=[],resumed_req_ids=set(),new_token_ids_lens=[],all_token_ids_lens={},new_block_ids=[],num_computed_tokens=[],num_output_tokens=[]), num_scheduled_tokens={0-aa87c714: 8}, total_num_scheduled_tokens=8, scheduled_spec_decode_tokens={}, scheduled_encoder_inputs={}, num_common_prefix_blocks=[0, 0, 0, 0], finished_req_ids=[], free_encoder_mm_hashes=[], preempted_req_ids=[], has_structured_output_requests=false, pending_structured_output_tokens=false, num_invalid_spec_tokens=null, kv_connector_metadata=null, ec_connector_metadata=null, new_block_ids_to_zero=[4])
 
 
 ------------------------------------------------------------
@@ -28,20 +28,3 @@ Processed prompts:   0%|          | 0/1 [00:00<?, ?it/s, est. speed input: 0.00 
 ============================================================
 🧪 TurboQuant Test
 ============================================================
-  ❌ Error(stderr tail): isystem /home/deng/vllm/lib/python3.12/site-packages/flashinfer/data/spdlog/include --compiler-options=-fPIC --expt-relaxed-constexpr -DFLASHINFER_ENABLE_FP8_E8M0 -DFLASHINFER_ENABLE_FP4_E2M1 --threads=1 -use_fast_math -DFLASHINFER_ENABLE_F16 -DFLASHINFER_ENABLE_BF16 -DFLASHINFER_ENABLE_FP8_E4M3 -DFLASHINFER_ENABLE_FP8_E5M2 -DNDEBUG -O3 -gencode=arch=compute_90a,code=sm_90a -DCUTE_SM90_EXTENDED_MMA_SHAPES_ENABLED -DFLASHINFER_ENABLE_FP8_E8M0 -DFLASHINFER_ENABLE_FP4_E2M1 -DFLAT_SM90A_ENABLED -std=c++20 -c /home/deng/.cache/flashinfer/0.6.6/90a/generated/gdn_prefill_sm90/gdn_prefill_launcher.cu -o /home/deng/.cache/flashinfer/0.6.6/90a/cached_ops/gdn_prefill_sm90/gdn_prefill_launcher.cuda.o 
-[rank0]: nvcc fatal   : Value 'c++20' is not defined for option 'std'
-[rank0]: ninja: build stopped: subcommand failed.
-
-
-Processed prompts:   0%|          | 0/1 [00:00<?, ?it/s, est. speed input: 0.00 toks/s, output: 0.00 toks/s]
-[rank0]:[W507 03:47:14.653511867 ProcessGroupNCCL.cpp:1553] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
-
-  📌 stdout tail: cached_reqs=CachedRequestData(req_ids=[],resumed_req_ids=set(),new_token_ids_lens=[],all_token_ids_lens={},new_block_ids=[],num_computed_tokens=[],num_output_tokens=[]), num_scheduled_tokens={0-82ff4d4e: 8}, total_num_scheduled_tokens=8, scheduled_spec_decode_tokens={}, scheduled_encoder_inputs={}, num_common_prefix_blocks=[0, 0, 0, 0], finished_req_ids=[], free_encoder_mm_hashes=[], preempted_req_ids=[], has_structured_output_requests=false, pending_structured_output_tokens=false, num_invalid_spec_tokens=null, kv_connector_metadata=null, ec_connector_metadata=null, new_block_ids_to_zero=[4])
-
-
-💾 结果已保存:
-   JSON: results/test_results_20260507_034715.json
-   Markdown: results/test_report_20260507_034715.md
-
-✅ 测试完成!
-(vllm) (vllm_qw) deng@bm-220ay4m:~/Code/TurboQuant_Test_CAT/test_framework$ 
