@@ -30,6 +30,8 @@ from dataclasses import dataclass, asdict
 from typing import List, Dict, Optional, Tuple
 from datetime import datetime
 
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
 
 # ============== 配置 ==============
 
@@ -94,8 +96,19 @@ def create_baseline_script(prompt: str, max_tokens: int) -> str:
     """创建 Baseline 测试脚本"""
     return f'''
 import os
+import sys
+import types
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["VLLM_ENABLE_V1_MULTIPROCESSING"] = "0"
+repo_root = os.environ.get("TURBOQUANT_REPO_ROOT")
+if repo_root and repo_root not in sys.path:
+    sys.path.insert(0, repo_root)
+pkg_dir = os.path.join(repo_root, "turboquant") if repo_root else None
+if pkg_dir and os.path.isdir(pkg_dir) and "turboquant" not in sys.modules:
+    # 避免触发 turboquant/__init__.py（其可能包含额外可选依赖）
+    pkg = types.ModuleType("turboquant")
+    pkg.__path__ = [pkg_dir]
+    sys.modules["turboquant"] = pkg
 
 import json
 import time
@@ -127,7 +140,8 @@ def main():
     torch.cuda.synchronize()
 
     start = time.perf_counter()
-    outputs = llm.generate(["{prompt}"], SamplingParams(temperature=0, max_tokens={max_tokens}))
+    # ✅ 修复：多行字符串用三引号包裹，解决语法错误
+    outputs = llm.generate(["""{prompt}"""], SamplingParams(temperature=0, max_tokens={max_tokens}))
     torch.cuda.synchronize()
     elapsed = time.time() - start
 
@@ -166,8 +180,12 @@ def create_tq_script(prompt: str, max_tokens: int, key_bits: int = 3,
     """创建 TurboQuant 测试脚本"""
     return f'''
 import os
+import sys
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 os.environ["VLLM_ENABLE_V1_MULTIPROCESSING"] = "0"
+repo_root = os.environ.get("TURBOQUANT_REPO_ROOT")
+if repo_root and repo_root not in sys.path:
+    sys.path.insert(0, repo_root)
 
 import json
 import time
@@ -217,7 +235,8 @@ def main():
     torch.cuda.synchronize()
 
     start = time.perf_counter()
-    outputs = llm.generate(["{prompt}"], SamplingParams(temperature=0, max_tokens={max_tokens}))
+    # ✅ 修复：多行字符串用三引号包裹，解决语法错误
+    outputs = llm.generate(["""{prompt}"""], SamplingParams(temperature=0, max_tokens={max_tokens}))
     torch.cuda.synchronize()
     elapsed = time.time() - start
 
@@ -274,8 +293,9 @@ if __name__ == "__main__":
 class TurboQuantTester:
     """TurboQuant 测试器"""
 
-    def __init__(self, python_path: str = None):
+    def __init__(self, python_path: str = None, turboquant_root: str = None):
         self.python = python_path or sys.executable
+        self.turboquant_root = turboquant_root or str(REPO_ROOT)
         self.results = []
 
     def run_script(self, script: str, timeout: int = 600) -> Optional[Dict]:
@@ -290,6 +310,12 @@ class TurboQuantTester:
             env = os.environ.copy()
             env["TOKENIZERS_PARALLELISM"] = "false"
             env["VLLM_ENABLE_V1_MULTIPROCESSING"] = "0"
+            env["TURBOQUANT_REPO_ROOT"] = self.turboquant_root
+            old_pythonpath = env.get("PYTHONPATH", "")
+            env["PYTHONPATH"] = (
+                f"{self.turboquant_root}:{old_pythonpath}"
+                if old_pythonpath else self.turboquant_root
+            )
 
             result = subprocess.run(
                 [self.python, temp_path],
@@ -300,7 +326,11 @@ class TurboQuantTester:
             )
 
             if result.returncode != 0:
-                print(f"  ❌ Error: {result.stderr[:500]}")
+                err_tail = (result.stderr or "")[-1200:]
+                out_tail = (result.stdout or "")[-600:]
+                print(f"  ❌ Error(stderr tail): {err_tail}")
+                if out_tail:
+                    print(f"  📌 stdout tail: {out_tail}")
                 return None
 
             # 解析 JSON 结果
@@ -457,7 +487,7 @@ class TurboQuantTester:
         with open(json_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
-        # 保存 Markdown 报告
+        # 保存 Markdown 报告 ✅ 修复：增加空值判断，防止None报错
         md_path = f"results/test_report_{timestamp}.md"
         lines = [
             "# TurboQuant 测试报告",
@@ -466,19 +496,35 @@ class TurboQuantTester:
             "",
             "## Baseline",
             "",
-            f"- KV Cache Blocks: {baseline.kv_cache_blocks}",
-            f"- Max Tokens: {baseline.max_tokens_capacity:,}",
-            f"- TTFT: {baseline.ttft_ms:.2f} ms",
-            f"- TPOT: {baseline.tpot_ms:.2f} ms",
-            f"- Throughput: {baseline.throughput:.2f} tok/s",
+        ]
+        
+        # 安全判断：只有baseline不为空才写入
+        if baseline:
+            lines.extend([
+                f"- KV Cache Blocks: {baseline.kv_cache_blocks}",
+                f"- Max Tokens: {baseline.max_tokens_capacity:,}",
+                f"- TTFT: {baseline.ttft_ms:.2f} ms",
+                f"- TPOT: {baseline.tpot_ms:.2f} ms",
+                f"- Throughput: {baseline.throughput:.2f} tok/s",
+            ])
+        
+        lines.extend([
             "",
             "## TurboQuant",
             "",
-            f"- KV Cache Blocks: {tq.kv_cache_blocks}",
-            f"- Max Tokens: {tq.max_tokens_capacity:,}",
-            f"- TTFT: {tq.ttft_ms:.2f} ms",
-            f"- TPOT: {tq.tpot_ms:.2f} ms",
-            f"- Throughput: {tq.throughput:.2f} tok/s",
+        ])
+        
+        # 安全判断：只有tq不为空才写入
+        if tq:
+            lines.extend([
+                f"- KV Cache Blocks: {tq.kv_cache_blocks}",
+                f"- Max Tokens: {tq.max_tokens_capacity:,}",
+                f"- TTFT: {tq.ttft_ms:.2f} ms",
+                f"- TPOT: {tq.tpot_ms:.2f} ms",
+                f"- Throughput: {tq.throughput:.2f} tok/s",
+            ])
+        
+        lines.extend([
             "",
             "## 结论",
             "",
@@ -486,7 +532,7 @@ class TurboQuantTester:
             "1. 节省显存",
             "2. 支持更长上下文",
             "3. 支持更多并发",
-        ]
+        ])
 
         with open(md_path, 'w', encoding='utf-8') as f:
             f.write('\n'.join(lines))
@@ -499,6 +545,7 @@ class TurboQuantTester:
 # ============== 主入口 ==============
 
 def main():
+    global MODEL_PATH
     parser = argparse.ArgumentParser(description="TurboQuant 真实效果测试")
     parser.add_argument("--config", required=True, choices=["baseline", "turboquant"],
                        help="测试配置")
@@ -506,8 +553,11 @@ def main():
                        help="模型路径")
     parser.add_argument("--python", default=None,
                        help="Python 路径")
+    parser.add_argument("--turboquant-root", default=str(REPO_ROOT),
+                       help="TurboQuant 项目根目录（需包含 turboquant/）")
 
     args = parser.parse_args()
+    MODEL_PATH = args.model_path
 
     print("="*60)
     print("🧪 TurboQuant 真实效果测试")
@@ -515,7 +565,10 @@ def main():
     print(f"配置: {args.config}")
     print(f"模型: {args.model_path}")
 
-    tester = TurboQuantTester(python_path=args.python)
+    tester = TurboQuantTester(
+        python_path=args.python,
+        turboquant_root=args.turboquant_root,
+    )
 
     if args.config == "baseline":
         result = tester.test_baseline()
