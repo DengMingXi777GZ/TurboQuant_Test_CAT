@@ -320,7 +320,8 @@ def generate_request(port: int, prompt: str, max_tokens: int = 128) -> Optional[
             try:
                 chunk_data = json.loads(data_str)
                 delta = chunk_data.get("choices", [{}])[0].get("delta", {})
-                text = delta.get("text", "")
+                # vLLM streaming 响应格式: delta.content
+                text = delta.get("content") or delta.get("text") or ""
                 if text:
                     full_text += text
 
