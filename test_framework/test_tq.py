@@ -311,6 +311,7 @@ class TurboQuantTester:
             env = os.environ.copy()
             env["TOKENIZERS_PARALLELISM"] = "false"
             env["VLLM_ENABLE_V1_MULTIPROCESSING"] = "0"
+            env["VLLM_ATTENTION_BACKEND"] = "FLASH_ATTN"  # 跳过 FlashInfer
             env["TURBOQUANT_REPO_ROOT"] = self.turboquant_root
             old_pythonpath = env.get("PYTHONPATH", "")
             env["PYTHONPATH"] = (
