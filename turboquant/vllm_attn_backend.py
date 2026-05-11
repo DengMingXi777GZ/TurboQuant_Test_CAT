@@ -96,6 +96,15 @@ def enable_no_alloc(
     if hasattr(Executor, "_tq_patched"):
         return
 
+    # 修复 vLLM 自动推断 speculation 的问题
+    try:
+        import vllm.transformers_utils.config as vllm_config_utils
+        if hasattr(vllm_config_utils, "maybe_override_with_speculators"):
+            vllm_config_utils.maybe_override_with_speculators = lambda m, t, s, *a, **k: (m, t, s)
+            print("[TurboQuant] Monkey patched maybe_override_with_speculators")
+    except Exception:
+        pass
+
     if not hasattr(GPUModelRunner, "_tq_layout_patch"):
         orig_layout_update = GPUModelRunner._update_hybrid_attention_mamba_layout
 
@@ -228,6 +237,19 @@ def free_kv_cache(model_runner):
     freed = 0
     tiny = torch.zeros(1, dtype=torch.int8, device=device)
 
+    def _first_kv_tensor(kv_cache):
+        if kv_cache is None:
+            return None
+        if isinstance(kv_cache, (list, tuple)):
+            if len(kv_cache) == 0:
+                return None
+            kv0 = kv_cache[0]
+        else:
+            kv0 = kv_cache
+        if hasattr(kv0, "data_ptr"):
+            return kv0
+        return None
+
     ptrs_to_free = set()
     for layer_name, state in layer_states.items():
         if not getattr(state, "supports_hybrid", False):
@@ -236,9 +258,11 @@ def free_kv_cache(model_runner):
         if attn_module is None:
             continue
         kv_list = getattr(attn_module, "kv_cache", None)
-        if kv_list and len(kv_list) > 0 and hasattr(kv_list[0], "data_ptr"):
-            ptrs_to_free.add(kv_list[0].data_ptr())
+        kv0 = _first_kv_tensor(kv_list)
+        if kv0 is not None:
+            ptrs_to_free.add(kv0.data_ptr())
 
+    freed_ptrs = set()
     for layer_name, state in layer_states.items():
         if not getattr(state, "supports_hybrid", False):
             continue
@@ -246,10 +270,19 @@ def free_kv_cache(model_runner):
         if attn_module is None:
             continue
         kv_list = getattr(attn_module, "kv_cache", None)
-        if kv_list and len(kv_list) > 0:
-            old = kv_list[0]
-            freed += old.nelement() * old.element_size()
-            kv_list[0] = tiny
+        kv0 = _first_kv_tensor(kv_list)
+        if kv0 is not None:
+            old = kv0
+            ptr = old.data_ptr()
+            if ptr not in freed_ptrs:
+                freed += old.nelement() * old.element_size()
+                freed_ptrs.add(ptr)
+            if isinstance(kv_list, list) and len(kv_list) > 0:
+                kv_list[0] = tiny
+            elif isinstance(kv_list, tuple) and len(kv_list) > 0:
+                setattr(attn_module, "kv_cache", (tiny, *kv_list[1:]))
+            elif torch.is_tensor(kv_list):
+                setattr(attn_module, "kv_cache", tiny)
 
     for i in range(len(model_runner.kv_caches)):
         entry = model_runner.kv_caches[i]
